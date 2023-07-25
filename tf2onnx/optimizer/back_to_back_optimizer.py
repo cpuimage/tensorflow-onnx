@@ -37,7 +37,9 @@ class BackToBackOptimizer(GraphOptimizerBase):
     def _optimize_at_current_graph_level(self, g):
         for optype, handler in _func_map.items():
             # candidate nodes for removal/optimization
-            nodes = [n for n in g.get_nodes() if n.type in optype]
+            ops = g.get_nodes()
+            ops.sort(key=lambda op: op.name)
+            nodes = [n for n in ops if n.type in optype]
 
             # topological sort of candidates
             # simplifying assumption for back-to-back-optimizer is

@@ -63,6 +63,7 @@ class TransposeOptimizer(GraphOptimizerBase):
         # make Reshape into a const, which then can be fused into Conv's weight for mobilenet_v1_75_192
         self._output_names = [self._g.get_node_by_output(out).name for out in self._g.outputs]
         ops = self.nodes
+        ops.sort(key=lambda op: op.name)
         constable_reshape_ops = [n for n in ops
                                  if (n.type == "Reshape"
                                      and n.inputs[0].is_const()
@@ -138,7 +139,9 @@ class TransposeOptimizer(GraphOptimizerBase):
         # so we should merge them back to one if they can't be eliminated in previous procedure.
         graph = self._g
         input_transposes_map = defaultdict(list)
-        for node in graph.get_nodes():
+        ops = graph.get_nodes()
+        ops.sort(key=lambda op: op.name)
+        for node in ops:
             if node.type == "Transpose" and node.get_attr("perm"):
                 key = (node.input[0], str(node.get_attr("perm").ints))
                 input_transposes_map[key].append(node)

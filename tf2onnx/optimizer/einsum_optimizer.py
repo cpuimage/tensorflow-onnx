@@ -2283,6 +2283,7 @@ class EinsumOptimizer(GraphOptimizerBase):
         while graph_changed:
             graph_changed = False
             ops = graph.get_nodes()
+            ops.sort(key=lambda op: op.name)
             for op in ops:
                 if op.type == "Einsum" and self._optimize_einsum(op, graph):
                     graph_changed = True

@@ -26,7 +26,9 @@ class UpsampleOptimizer(GraphOptimizerBase):
     def _optimize_at_current_graph_level(self, graph):
         self._g = graph
         # replace upsample node with all ones in scale with identity node
-        for n in self._g.get_nodes():
+        ops = self._g.get_nodes()
+        ops.sort(key=lambda op: op.name)
+        for n in ops:
             if n.type == "Upsample":
                 node_changed = False
                 # upsample in opset <=8 has scales in attributes

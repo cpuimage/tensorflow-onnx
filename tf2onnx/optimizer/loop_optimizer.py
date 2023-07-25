@@ -27,7 +27,9 @@ class LoopOptimizer(GraphOptimizerBase):
         has_update = True
         while has_update:
             has_update = False
-            nodes = [n for n in g.get_nodes() if n.type == "Loop"]
+            ops = g.get_nodes()
+            ops.sort(key=lambda op: op.name)
+            nodes = [n for n in ops if n.type == "Loop"]
             for n in nodes:
                 has_update_tmp = self._try_move_transpose_out_of_body_graph(n)
                 if has_update_tmp:

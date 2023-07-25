@@ -49,7 +49,9 @@ class MergeDuplicatedNodesOptimizer(GraphOptimizerBase):
     @staticmethod
     def _group_nodes_by_type_inputs(graph):
         res = defaultdict(list)
-        for node in graph.get_nodes():
+        ops = graph.get_nodes()
+        ops.sort(key=lambda op: op.name)
+        for node in ops:
             # default const of graph input cannot be merged
             if node.is_graph_input_default_const():
                 continue
