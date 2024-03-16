@@ -66,6 +66,7 @@ if is_tf2():
     quantize_and_dequantize = tf.quantization.quantize_and_dequantize
     resize_bilinear = tf.compat.v1.image.resize_bilinear
     resize_bilinear_v2 = tf.compat.v2.image.resize
+    resize_area = tf.compat.v1.image.resize_area
     is_nan = tf.math.is_nan
     is_inf = tf.math.is_inf
     floormod = tf.math.floormod
@@ -84,6 +85,7 @@ elif Version(tf.__version__) >= Version("1.13"):
     fused_batch_norm = tf.compat.v1.nn.fused_batch_norm
     dropout = tf.compat.v1.nn.dropout
     quantize_and_dequantize = tf.compat.v1.quantization.quantize_and_dequantize
+    resize_area = tf.compat.v1.image.resize_area
     resize_nearest_neighbor = tf.compat.v1.image.resize_nearest_neighbor
     resize_bilinear = tf.compat.v1.image.resize_bilinear
     if Version(tf.__version__) >= Version("1.14"):
@@ -3286,6 +3288,31 @@ class BackendTests(Tf2OnnxBackendTestBase):
         self._run_test_case(func, [_OUTPUT], {_INPUT: x_val, _INPUT1: x_new_size})
 
     @skip_caffe2_backend()
+    def test_resize_area(self):
+        x_shape = [1, 15, 20, 2]
+        x_new_size = [30, 40]
+        x_val = np.arange(1, 1 + np.prod(x_shape)).astype("float32").reshape(x_shape)
+        def func(x):
+            x_new_size_ = tf.constant(x_new_size)
+            x_ = resize_area(x, x_new_size_)
+            return tf.identity(x_, name=_TFOUTPUT)
+        _ = self._run_test_case(func, [_OUTPUT], {_INPUT: x_val})
+
+    # https://github.com/microsoft/onnxruntime/issues/17564
+    @skip_onnxruntime_backend("Blocked by onnxruntime issue #17564")
+    @skip_caffe2_backend()
+    def test_resize_area_align_coreners(self):
+        x_shape = [1, 15, 20, 2]
+        x_new_size = [30, 40]
+        x_val = np.arange(1, 1 + np.prod(x_shape)).astype("float32").reshape(x_shape)
+        def func(x):
+            x_new_size_ = tf.constant(x_new_size)
+            x_ = resize_area(x, x_new_size_, align_corners=True)
+            return tf.identity(x_, name=_TFOUTPUT)
+        _ = self._run_test_case(func, [_OUTPUT], {_INPUT: x_val})
+
+
+    @skip_caffe2_backend()
     @check_opset_min_version(7, "resize_bilinear")
     def test_resize_bilinear(self):
         x_shape = [1, 15, 20, 2]
@@ -3899,6 +3926,14 @@ class BackendTests(Tf2OnnxBackendTestBase):
                 return tf.identity(res, name=_TFOUTPUT)
             self._run_test_case(func, [_OUTPUT], {_INPUT: input_val, _INPUT1: low_val, _INPUT2: high_val})
 
+    def test_matrix_band_part_bool(self):
+        input_val = np.random.choice([False, True], size=(10, 15))
+        def func(input_x):
+            res = tf.linalg.band_part(input_x, -1, 0)
+            res1 = tf.linalg.band_part(input_x, 0, -1)
+            return tf.identity(res, name=_TFOUTPUT), tf.identity(res1, name=_TFOUTPUT1)
+        self._run_test_case(func, [_OUTPUT, _OUTPUT1], {_INPUT: input_val})
+
     def test_floordiv(self):
         input_val_1 = np.random.random_sample(100).astype(np.int32)
         input_val_2 = (np.random.random_sample(100) + 1).astype(np.int32)
@@ -4077,6 +4112,16 @@ class BackendTests(Tf2OnnxBackendTestBase):
         self._run_test_case(func, [_OUTPUT], {_INPUT: input_x, _INPUT1: input_y})
         self._run_test_case(func, [_OUTPUT], {_INPUT: input_x.astype(np.int32), _INPUT1: input_y}, as_session=True,
                             graph_validator=lambda g: check_op_count(g, "ConstantOfShape", 1, disabled=False))
+
+    def test_ones_like(self):
+        input_x = np.random.random_sample([3, 16, 16]).astype(np.float32)
+        input_y = np.array([16, 16, 3]).astype(np.int64)
+
+        def func(x, y):
+            z = tf.reshape(x, y)
+            return tf.ones_like(z, name=_TFOUTPUT)
+
+        self._run_test_case(func, [_OUTPUT], {_INPUT: input_x, _INPUT1: input_y})
 
     @check_opset_min_version(9, "is_nan")
     def test_isnan(self):
